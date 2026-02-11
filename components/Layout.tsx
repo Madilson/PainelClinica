@@ -61,7 +61,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, title }) => {
             </>
           )}
           <hr className="border-white/10 my-4" />
-          <a href="#/panel" target="_blank" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/20 text-green-300 hover:bg-green-500/30 transition-colors">
+          <a 
+            href="#/panel" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20 transition-all font-bold"
+          >
             <i className="fas fa-tv w-5"></i> Abrir Painel TV
           </a>
         </nav>
@@ -78,7 +83,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, title }) => {
           </div>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 px-4 py-3 rounded-xl text-sm font-bold transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 px-4 py-3 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-red-500/10"
           >
             <i className="fas fa-sign-out-alt"></i> Sair
           </button>
