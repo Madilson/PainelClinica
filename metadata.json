@@ -1,0 +1,7 @@
+{
+  "name": "MedCall - Sistema de Painel Hospitalar",
+  "description": "Sistema completo para gerenciamento de chamadas de pacientes com painel de TV em tempo real, controle administrativo e recepção.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
