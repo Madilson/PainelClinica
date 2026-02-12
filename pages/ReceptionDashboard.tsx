@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getRooms, saveCall, getHistory } from '../store';
 import { Room, PatientCall } from '../types';
 
@@ -10,6 +10,8 @@ const ReceptionDashboard: React.FC = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [recentCalls, setRecentCalls] = useState<PatientCall[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  const successAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     setRooms(getRooms().filter(r => r.active));
@@ -39,11 +41,20 @@ const ReceptionDashboard: React.FC = () => {
       setPatientName('');
       setTicketNumber('');
       setLoading(false);
+      
+      // Som de confirmação para a recepção
+      if (successAudioRef.current) {
+        successAudioRef.current.currentTime = 0;
+        successAudioRef.current.play().catch(() => {});
+      }
     }, 500);
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Som de confirmação escondido */}
+      <audio ref={successAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto" />
+
       {/* Call Form */}
       <div className="lg:col-span-2">
         <div className="bg-white border rounded-3xl shadow-sm p-8">
@@ -66,7 +77,7 @@ const ReceptionDashboard: React.FC = () => {
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
                   placeholder="Ex: João da Silva"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-4 px-5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-4 px-5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
                   required
                 />
               </div>
@@ -119,7 +130,7 @@ const ReceptionDashboard: React.FC = () => {
               ) : (
                 <>
                   <i className="fas fa-paper-plane"></i>
-                  CHAMAR PACIENTE
+                  CHAMAR PACIENTE AGORA
                 </>
               )}
             </button>
@@ -146,7 +157,7 @@ const ReceptionDashboard: React.FC = () => {
               recentCalls.map(call => (
                 <div key={call.id} className="p-5 hover:bg-slate-50 transition-colors">
                   <div className="flex justify-between items-start mb-1">
-                    <p className="font-bold text-slate-800 truncate pr-2">{call.patientName}</p>
+                    <p className="font-bold text-slate-800 truncate pr-2 uppercase">{call.patientName}</p>
                     <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-1 rounded">
                       {new Date(call.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -164,11 +175,11 @@ const ReceptionDashboard: React.FC = () => {
 
         <div className="bg-gradient-to-br from-hospital-blue to-blue-900 rounded-3xl p-6 text-white">
           <div className="flex items-center gap-3 mb-4">
-             <i className="fas fa-lightbulb text-yellow-300"></i>
-             <h5 className="font-bold">Dica do Sistema</h5>
+             <i className="fas fa-volume-up text-yellow-300"></i>
+             <h5 className="font-bold">Anúncio por Voz Ativo</h5>
           </div>
           <p className="text-xs leading-relaxed opacity-80">
-            O painel de TV atualiza automaticamente em menos de 1 segundo após você clicar no botão "Chamar". Não é necessário atualizar a página.
+            O Painel TV agora anuncia o nome do paciente por voz após o som de notificação. Certifique-se de que o volume da TV esteja adequado.
           </p>
         </div>
       </div>
