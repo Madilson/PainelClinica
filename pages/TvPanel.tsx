@@ -2,6 +2,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getLatestCall, getHistory, realTime } from '../store';
 import { PatientCall } from '../types';
+import { GoogleGenAI, Modality } from "@google/genai";
+
+// Helper functions for base64 and PCM decoding
+function decodeBase64(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
 
 const TvPanel: React.FC = () => {
   const [currentCall, setCurrentCall] = useState<PatientCall | null>(null);
@@ -11,8 +42,10 @@ const TvPanel: React.FC = () => {
   const [isFlashing, setIsFlashing] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     setCurrentCall(getLatestCall());
@@ -34,52 +67,88 @@ const TvPanel: React.FC = () => {
   }, []);
 
   const triggerNotification = (call: PatientCall) => {
-    // Resetar estados de animação para forçar re-execução (importante para re-chamadas)
     setIsAnimating(false);
     setIsFlashing(false);
     
-    // Pequeno delay para o navegador processar o reset antes da nova animação
     setTimeout(() => {
       setIsAnimating(true);
       setIsFlashing(true);
       
-      // Tocar o DING
+      // Play alert sound (DING)
       if (isAudioEnabled && audioRef.current) {
          audioRef.current.currentTime = 0;
          audioRef.current.play().then(() => {
-           // Após o sinal sonoro, fazemos o anúncio por voz do nome
+           // Start AI Voice Announcement
            setTimeout(() => {
-             announcePatient(call);
-           }, 1500); // Delay ideal para transição entre DING e VOZ
+             announcePatientWithGemini(call);
+           }, 1500);
          }).catch(e => console.error('Erro áudio:', e));
       }
 
-      // Parar o flash após 3 segundos
       setTimeout(() => setIsFlashing(false), 3000);
-      // Parar animação de destaque após 10 segundos
       setTimeout(() => setIsAnimating(false), 10000);
     }, 50);
   };
 
-  const announcePatient = (call: PatientCall) => {
-    if (!window.speechSynthesis) return;
+  const announcePatientWithGemini = async (call: PatientCall) => {
+    if (!process.env.API_KEY) return;
     
-    // Importante: Cancelar qualquer fala anterior para não encavalar
-    window.speechSynthesis.cancel();
-    
-    const textToSpeak = `Atenção. Paciente: ${call.patientName}. Por favor, compareça à sala ${call.roomName}.`;
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    
-    utterance.lang = 'pt-BR';
-    utterance.rate = 0.85; // Velocidade levemente reduzida para maior clareza hospitalar
-    utterance.pitch = 1.05; // Tom levemente mais agudo para melhor audição em ambientes ruidosos
-    utterance.volume = 1;
-    
-    window.speechSynthesis.speak(utterance);
+    try {
+      setIsSpeaking(true);
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `Anuncie de forma clara e profissional: Paciente ${call.patientName}, por favor, compareça à sala ${call.roomName}.`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      
+      if (base64Audio) {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        
+        const ctx = audioContextRef.current;
+        const audioBuffer = await decodeAudioData(
+          decodeBase64(base64Audio),
+          ctx,
+          24000,
+          1
+        );
+
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        source.onended = () => setIsSpeaking(false);
+        source.start();
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (error) {
+      console.error("Erro ao gerar voz com Gemini:", error);
+      setIsSpeaking(false);
+      // Fallback para voz nativa se a API falhar
+      const utterance = new SpeechSynthesisUtterance(`Paciente ${call.patientName}. Sala ${call.roomName}`);
+      utterance.lang = 'pt-BR';
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const enableAudio = () => {
     setIsAudioEnabled(true);
+    // Initialize AudioContext on user gesture
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    
     if (audioRef.current) {
       audioRef.current.play().then(() => {
         audioRef.current?.pause();
@@ -103,7 +172,7 @@ const TvPanel: React.FC = () => {
         </div>
         <h1 className="text-5xl font-black mb-6">MedCall Pro</h1>
         <p className="text-blue-200 mb-12 max-w-lg text-2xl font-light leading-relaxed">
-          Para ativar as <strong>notificações sonoras</strong> e o <strong>anúncio por voz</strong>, clique no botão abaixo.
+          Para ativar as <strong>notificações sonoras</strong> de alta qualidade com Gemini AI, clique abaixo.
         </p>
         <button 
           onClick={enableAudio}
@@ -138,6 +207,12 @@ const TvPanel: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-10">
+          {isSpeaking && (
+            <div className="flex items-center gap-2 bg-blue-500/20 px-4 py-2 rounded-full animate-pulse border border-blue-500/30">
+               <i className="fas fa-volume-up text-blue-400"></i>
+               <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">Anunciando...</span>
+            </div>
+          )}
           <div className="text-right">
             <div className={`text-6xl font-black leading-none ${isFlashing ? 'text-slate-800' : 'text-white'}`}>
               {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
