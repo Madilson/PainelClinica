@@ -2,12 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { getRooms, getUsers, getHistory, setUsers } from '../store';
 import { Room, User, UserRole, PatientCall } from '../types';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const AdminDashboard: React.FC = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [users, setUsersList] = useState<User[]>([]);
   const [history, setHistory] = useState<PatientCall[]>([]);
   const [view, setView] = useState<'stats' | 'users' | 'rooms' | 'history'>('stats');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Modal State
   const [showUserModal, setShowUserModal] = useState(false);
@@ -28,6 +32,7 @@ const AdminDashboard: React.FC = () => {
 
   const refreshData = () => {
     setUsersList(getUsers());
+    setHistory(getHistory());
   };
 
   const handleOpenModal = (user?: User) => {
@@ -36,7 +41,7 @@ const AdminDashboard: React.FC = () => {
       setFormData({
         name: user.name,
         username: user.username,
-        password: '', // Password empty on edit unless changed
+        password: '',
         role: user.role,
         active: user.active
       });
@@ -95,6 +100,58 @@ const AdminDashboard: React.FC = () => {
     refreshData();
   };
 
+  // Export Functions
+  const exportToExcel = () => {
+    const data = history.map(h => ({
+      'Data/Hora': new Date(h.timestamp).toLocaleString('pt-BR'),
+      'Paciente': h.patientName,
+      'Senha': h.ticketNumber || 'N/A',
+      'Consultório': h.roomName,
+      'Médico': h.doctorName
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Atendimentos");
+    XLSX.writeFile(workbook, `Relatorio_MedCall_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(10, 61, 98); // Hospital Blue
+    doc.text('Relatório de Atendimentos - MedCall Pro', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 30);
+    
+    const tableData = history.map(h => [
+      new Date(h.timestamp).toLocaleString('pt-BR'),
+      h.patientName.toUpperCase(),
+      h.ticketNumber || '-',
+      `SALA ${h.roomName}`,
+      h.doctorName
+    ]);
+
+    (doc as any).autoTable({
+      startY: 35,
+      head: [['Data/Hora', 'Paciente', 'Senha', 'Local', 'Médico']],
+      body: tableData,
+      headStyles: { fillStyle: 'f', fillColor: [10, 61, 98], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+    });
+
+    doc.save(`Relatorio_MedCall_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const filteredHistory = history.filter(h => 
+    h.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    h.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const stats = [
     { label: 'Total Pacientes', val: history.length, icon: 'fa-users', color: 'bg-blue-500' },
     { label: 'Consultórios Ativos', val: rooms.filter(r => r.active).length, icon: 'fa-door-open', color: 'bg-green-500' },
@@ -107,9 +164,9 @@ const AdminDashboard: React.FC = () => {
       <div className="flex gap-4 p-1 bg-slate-100 rounded-2xl w-fit">
         {[
           { id: 'stats', label: 'Visão Geral', icon: 'fa-chart-pie' },
-          { id: 'users', label: 'Gerenciar Usuários', icon: 'fa-user-cog' },
-          { id: 'rooms', label: 'Gerenciar Consultórios', icon: 'fa-hospital' },
-          { id: 'history', label: 'Relatório Completo', icon: 'fa-file-alt' }
+          { id: 'users', label: 'Usuários', icon: 'fa-user-cog' },
+          { id: 'rooms', label: 'Consultórios', icon: 'fa-hospital' },
+          { id: 'history', label: 'Relatórios', icon: 'fa-file-alt' }
         ].map(tab => (
           <button
             key={tab.id}
@@ -139,7 +196,7 @@ const AdminDashboard: React.FC = () => {
           
           <div className="md:col-span-3 bg-white border rounded-3xl shadow-sm overflow-hidden">
              <div className="p-6 border-b flex items-center justify-between">
-                <h4 className="font-bold text-slate-800">Chamadas Recentes do Dia</h4>
+                <h4 className="font-bold text-slate-800">Atendimentos de Hoje</h4>
              </div>
              <table className="w-full text-left">
                 <thead>
@@ -227,11 +284,82 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {(view === 'rooms' || view === 'history') && (
+      {view === 'history' && (
+        <div className="bg-white border rounded-3xl shadow-sm">
+           <div className="p-8 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Relatório de Atendimentos</h3>
+                <p className="text-sm text-slate-500">Histórico completo de chamadas realizadas.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={exportToExcel}
+                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20"
+                >
+                  <i className="fas fa-file-excel"></i> Excel
+                </button>
+                <button 
+                  onClick={exportToPDF}
+                  className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-rose-500/20"
+                >
+                  <i className="fas fa-file-pdf"></i> PDF
+                </button>
+              </div>
+           </div>
+           
+           <div className="p-6 bg-slate-50 border-b">
+              <div className="relative max-w-md">
+                <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input 
+                  type="text" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por paciente ou médico..."
+                  className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+           </div>
+
+           <div className="overflow-x-auto">
+             <table className="w-full text-left">
+                <thead>
+                   <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400">
+                      <th className="px-6 py-4">Data/Hora</th>
+                      <th className="px-6 py-4">Paciente</th>
+                      <th className="px-6 py-4">Senha</th>
+                      <th className="px-6 py-4">Consultório</th>
+                      <th className="px-6 py-4">Médico</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                   {filteredHistory.length === 0 ? (
+                     <tr>
+                       <td colSpan={5} className="p-20 text-center text-slate-400">Nenhum registro encontrado.</td>
+                     </tr>
+                   ) : (
+                     filteredHistory.map(call => (
+                        <tr key={call.id} className="hover:bg-slate-50 transition-colors">
+                           <td className="px-6 py-4 text-slate-400 text-xs font-mono">
+                             {new Date(call.timestamp).toLocaleString('pt-BR')}
+                           </td>
+                           <td className="px-6 py-4 font-bold text-slate-700 uppercase">{call.patientName}</td>
+                           <td className="px-6 py-4 text-blue-600 font-bold">{call.ticketNumber || '-'}</td>
+                           <td className="px-6 py-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold text-xs uppercase tracking-tight">Sala {call.roomName}</span></td>
+                           <td className="px-6 py-4 text-slate-500 text-sm font-medium">{call.doctorName}</td>
+                        </tr>
+                     ))
+                   )}
+                </tbody>
+             </table>
+           </div>
+        </div>
+      )}
+
+      {view === 'rooms' && (
         <div className="bg-white p-20 rounded-3xl border text-center text-slate-400">
            <i className="fas fa-tools text-4xl mb-4 opacity-20"></i>
-           <h3 className="text-xl font-bold">Módulo em Desenvolvimento</h3>
-           <p>Esta funcionalidade está sendo implementada.</p>
+           <h3 className="text-xl font-bold">Gerenciamento de Consultórios</h3>
+           <p>Em breve: Cadastro de salas e escala médica.</p>
         </div>
       )}
 

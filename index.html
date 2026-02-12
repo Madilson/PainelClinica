@@ -17,13 +17,46 @@
         }
         .bg-hospital-blue { background-color: #0A3D62; }
         .text-hospital-blue { color: #0A3D62; }
+        
+        @keyframes headshake {
+          0% { transform: translateX(0); }
+          6.5% { transform: translateX(-6px) rotateY(-9deg); }
+          18.5% { transform: translateX(5px) rotateY(7deg); }
+          31.5% { transform: translateX(-3px) rotateY(-5deg); }
+          43.5% { transform: translateX(2px) rotateY(3deg); }
+          50% { transform: translateX(0); }
+        }
+        .animate-headshake { animation: headshake 0.6s ease-in-out; }
+
+        /* Animação de Entrada do Paciente (Zoom In Elástico) */
+        @keyframes patient-call-entry {
+          0% { transform: scale(0.7); opacity: 0; filter: blur(10px); }
+          60% { transform: scale(1.05); opacity: 1; filter: blur(0px); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-patient-entry {
+          animation: patient-call-entry 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Pulsação de Destaque */
+        @keyframes glow-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+          70% { box-shadow: 0 0 0 50px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .animate-glow-pulse {
+          animation: glow-pulse 2s infinite;
+        }
     </style>
 <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/"
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.6.0"
   }
 }
 </script>

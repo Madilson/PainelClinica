@@ -50,6 +50,18 @@ const ReceptionDashboard: React.FC = () => {
     }, 500);
   };
 
+  const recallPatient = (call: PatientCall) => {
+    // Re-emite o mesmo evento com um novo timestamp para disparar as animações no painel
+    const recallData = { ...call, timestamp: new Date().toISOString() };
+    saveCall(recallData);
+    
+    // Opcional: Feedback visual na lista
+    if (successAudioRef.current) {
+      successAudioRef.current.currentTime = 0;
+      successAudioRef.current.play().catch(() => {});
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Som de confirmação escondido */}
@@ -155,18 +167,24 @@ const ReceptionDashboard: React.FC = () => {
               </div>
             ) : (
               recentCalls.map(call => (
-                <div key={call.id} className="p-5 hover:bg-slate-50 transition-colors">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="font-bold text-slate-800 truncate pr-2 uppercase">{call.patientName}</p>
-                    <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-1 rounded">
-                      {new Date(call.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                <div key={call.id} className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-bold text-slate-800 truncate uppercase">{call.patientName}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span className="bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded">Sala {call.roomName}</span>
+                      <span>•</span>
+                      <span className="font-mono">{new Date(call.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded">Sala {call.roomName}</span>
-                    <span>•</span>
-                    <span className="truncate">{call.doctorName}</span>
-                  </div>
+                  <button 
+                    onClick={() => recallPatient(call)}
+                    className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 shadow-sm"
+                    title="Chamar novamente"
+                  >
+                    <i className="fas fa-redo-alt text-sm"></i>
+                  </button>
                 </div>
               ))
             )}
@@ -176,10 +194,10 @@ const ReceptionDashboard: React.FC = () => {
         <div className="bg-gradient-to-br from-hospital-blue to-blue-900 rounded-3xl p-6 text-white">
           <div className="flex items-center gap-3 mb-4">
              <i className="fas fa-volume-up text-yellow-300"></i>
-             <h5 className="font-bold">Anúncio por Voz Ativo</h5>
+             <h5 className="font-bold">Dica de Voz</h5>
           </div>
           <p className="text-xs leading-relaxed opacity-80">
-            O Painel TV agora anuncia o nome do paciente por voz após o som de notificação. Certifique-se de que o volume da TV esteja adequado.
+            Passe o mouse sobre um paciente recente e clique no ícone <i className="fas fa-redo-alt mx-1"></i> para repetir o anúncio no Painel TV.
           </p>
         </div>
       </div>

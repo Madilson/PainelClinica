@@ -34,35 +34,47 @@ const TvPanel: React.FC = () => {
   }, []);
 
   const triggerNotification = (call: PatientCall) => {
-    setIsAnimating(true);
-    setIsFlashing(true);
+    // Resetar estados de animação para forçar re-execução (importante para re-chamadas)
+    setIsAnimating(false);
+    setIsFlashing(false);
     
-    // Tocar o DING
-    if (isAudioEnabled && audioRef.current) {
-       audioRef.current.currentTime = 0;
-       audioRef.current.play().then(() => {
-         // Após o DING, fazer o anúncio por voz
-         setTimeout(() => {
-           announcePatient(call);
-         }, 1200);
-       }).catch(e => console.error('Erro áudio:', e));
-    }
+    // Pequeno delay para o navegador processar o reset antes da nova animação
+    setTimeout(() => {
+      setIsAnimating(true);
+      setIsFlashing(true);
+      
+      // Tocar o DING
+      if (isAudioEnabled && audioRef.current) {
+         audioRef.current.currentTime = 0;
+         audioRef.current.play().then(() => {
+           // Após o sinal sonoro, fazemos o anúncio por voz do nome
+           setTimeout(() => {
+             announcePatient(call);
+           }, 1500); // Delay ideal para transição entre DING e VOZ
+         }).catch(e => console.error('Erro áudio:', e));
+      }
 
-    // Parar o flash após 3 segundos
-    setTimeout(() => setIsFlashing(false), 3000);
-    // Parar animação de destaque após 10 segundos
-    setTimeout(() => setIsAnimating(false), 10000);
+      // Parar o flash após 3 segundos
+      setTimeout(() => setIsFlashing(false), 3000);
+      // Parar animação de destaque após 10 segundos
+      setTimeout(() => setIsAnimating(false), 10000);
+    }, 50);
   };
 
   const announcePatient = (call: PatientCall) => {
     if (!window.speechSynthesis) return;
     
-    const utterance = new SpeechSynthesisUtterance(
-      `Paciente, ${call.patientName}. Comparecer ao consultório ${call.roomName}.`
-    );
+    // Importante: Cancelar qualquer fala anterior para não encavalar
+    window.speechSynthesis.cancel();
+    
+    const textToSpeak = `Atenção. Paciente: ${call.patientName}. Por favor, compareça à sala ${call.roomName}.`;
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    
     utterance.lang = 'pt-BR';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
+    utterance.rate = 0.85; // Velocidade levemente reduzida para maior clareza hospitalar
+    utterance.pitch = 1.05; // Tom levemente mais agudo para melhor audição em ambientes ruidosos
+    utterance.volume = 1;
+    
     window.speechSynthesis.speak(utterance);
   };
 
@@ -105,7 +117,7 @@ const TvPanel: React.FC = () => {
   }
 
   return (
-    <div className={`h-screen w-screen transition-colors duration-200 flex flex-col overflow-hidden select-none ${
+    <div className={`h-screen w-screen transition-colors duration-500 flex flex-col overflow-hidden select-none ${
       isFlashing ? 'bg-white' : 'bg-[#0A3D62]'
     }`}>
       {/* Som de Notificação Hospitalar */}
@@ -148,44 +160,51 @@ const TvPanel: React.FC = () => {
       {/* Área de Chamada Principal */}
       <main className="flex-1 flex flex-col items-center justify-center px-10 relative">
         {currentCall ? (
-          <div className={`w-full max-w-[95%] flex flex-col items-center transition-all duration-500 ${isAnimating ? 'scale-105' : 'scale-100'}`}>
+          <div 
+            key={currentCall.id + (isAnimating ? '-anim' : '')} 
+            className={`w-full max-w-[95%] flex flex-col items-center animate-patient-entry transition-all duration-700 ${
+              isAnimating ? 'scale-105' : 'scale-100 opacity-90'
+            }`}
+          >
             <div className="mb-8">
-              <span className={`inline-block px-12 py-4 rounded-full font-black text-4xl uppercase tracking-[0.4em] shadow-2xl ${
-                isFlashing ? 'bg-blue-600 text-white' : 'bg-green-500 text-white animate-bounce'
+              <span className={`inline-block px-12 py-4 rounded-full font-black text-4xl uppercase tracking-[0.4em] shadow-2xl transition-all duration-500 ${
+                isFlashing ? 'bg-blue-600 text-white' : (isAnimating ? 'bg-green-500 text-white animate-bounce animate-glow-pulse' : 'bg-slate-700 text-slate-300')
               }`}>
-                 Chamando
+                 {isAnimating ? 'Chamando' : 'Em Atendimento'}
               </span>
             </div>
             
             <div className="w-full text-center mb-12">
-              <h2 className={`text-[12vw] leading-none font-black uppercase transition-colors duration-200 ${
-                isFlashing ? 'text-blue-900' : (isAnimating ? 'text-yellow-300' : 'text-white')
+              <h2 className={`text-[12vw] leading-none font-black uppercase transition-all duration-500 ${
+                isFlashing ? 'text-blue-900' : (isAnimating ? 'text-yellow-300' : 'text-white opacity-80')
               } drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)]`}>
                 {currentCall.patientName}
               </h2>
             </div>
 
-            <div className="flex items-stretch gap-12 w-full justify-center">
-              <div className={`p-12 rounded-[4rem] shadow-2xl flex flex-col items-center min-w-[450px] transition-colors duration-200 ${
-                isFlashing ? 'bg-blue-100 text-blue-900' : 'bg-white text-[#0A3D62]'
+            <div className={`flex items-stretch gap-12 w-full justify-center transition-all duration-700 ${!isAnimating && 'scale-95'}`}>
+              <div className={`p-12 rounded-[4rem] shadow-2xl flex flex-col items-center min-w-[450px] transition-all duration-500 ${
+                isFlashing ? 'bg-blue-100 text-blue-900' : (isAnimating ? 'bg-white text-[#0A3D62]' : 'bg-slate-800 text-white border border-white/10')
               }`}>
                 <span className="text-4xl font-bold uppercase opacity-60 mb-2">Consultório</span>
-                <span className="text-[16rem] leading-none font-black tracking-tighter">{currentCall.roomName}</span>
+                <span className={`text-[16rem] leading-none font-black tracking-tighter transition-transform duration-500 ${isAnimating ? 'scale-110' : 'scale-100'}`}>
+                  {currentCall.roomName}
+                </span>
               </div>
               
               <div className="flex flex-col justify-center text-left max-w-4xl">
-                <div className={`flex items-center gap-8 text-5xl font-bold mb-6 p-10 rounded-3xl border transition-colors duration-200 ${
-                  isFlashing ? 'bg-white border-blue-200 text-blue-900' : 'bg-white/10 border-white/10 text-blue-100'
+                <div className={`flex items-center gap-8 text-5xl font-bold mb-6 p-10 rounded-3xl border transition-all duration-500 ${
+                  isFlashing ? 'bg-white border-blue-200 text-blue-900' : (isAnimating ? 'bg-white/10 border-white/10 text-blue-100' : 'bg-transparent border-white/5 text-white/40')
                 }`}>
-                   <i className={`fas fa-user-md text-6xl ${isFlashing ? 'text-blue-600' : 'text-blue-400'}`}></i>
+                   <i className={`fas fa-user-md text-6xl ${isFlashing ? 'text-blue-600' : (isAnimating ? 'text-blue-400' : 'text-slate-600')}`}></i>
                    <div>
-                     <p className={`text-xl uppercase opacity-60 mb-1 ${isFlashing ? 'text-blue-500' : 'text-blue-300'}`}>Médico(a) Responsável</p>
+                     <p className={`text-xl uppercase opacity-60 mb-1 ${isFlashing ? 'text-blue-500' : (isAnimating ? 'text-blue-300' : 'text-slate-500')}`}>Médico(a) Responsável</p>
                      <p>{currentCall.doctorName}</p>
                    </div>
                 </div>
                 {currentCall.ticketNumber && (
-                  <div className={`text-5xl font-bold ml-4 ${isFlashing ? 'text-blue-800' : 'text-white/80'}`}>
-                    Senha: <span className="text-yellow-400">{currentCall.ticketNumber}</span>
+                  <div className={`text-5xl font-bold ml-4 transition-all duration-500 ${isFlashing ? 'text-blue-800' : (isAnimating ? 'text-white' : 'text-white/30')}`}>
+                    Senha: <span className={isAnimating ? 'text-yellow-400' : 'text-slate-500'}>{currentCall.ticketNumber}</span>
                   </div>
                 )}
               </div>
