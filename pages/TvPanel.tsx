@@ -261,8 +261,8 @@ const TvPanel: React.FC = () => {
               <div className={`p-12 rounded-[4rem] shadow-2xl flex flex-col items-center min-w-[450px] transition-all duration-500 ${
                 isFlashing ? 'bg-blue-100 text-blue-900' : (isAnimating ? 'bg-white text-[#0A3D62]' : 'bg-slate-800 text-white border border-white/10')
               }`}>
-                <span className="text-4xl font-bold uppercase opacity-60 mb-2">Consultório</span>
-                <span className={`text-[16rem] leading-none font-black tracking-tighter transition-transform duration-500 ${isAnimating ? 'scale-110' : 'scale-100'}`}>
+                <span className="text-4xl font-bold uppercase opacity-60 mb-2">Sala / Consultório</span>
+                <span className={`text-[12rem] leading-none font-black tracking-tighter transition-transform duration-500 ${isAnimating ? 'scale-110' : 'scale-100'}`}>
                   {currentCall.roomName}
                 </span>
               </div>

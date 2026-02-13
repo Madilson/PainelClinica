@@ -1,22 +1,22 @@
 
 import React, { useState, useEffect } from 'react';
-import { getRooms, getUsers, getHistory, setUsers } from '../store';
+import { getRooms, getUsers, getHistory, setUsers, saveRooms } from '../store';
 import { Room, User, UserRole, PatientCall } from '../types';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 const AdminDashboard: React.FC = () => {
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRoomsList] = useState<Room[]>([]);
   const [users, setUsersList] = useState<User[]>([]);
   const [history, setHistory] = useState<PatientCall[]>([]);
   const [view, setView] = useState<'stats' | 'users' | 'rooms' | 'history'>('stats');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Modal State
+  // User Modal State
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState({
+  const [userFormData, setUserFormData] = useState({
     name: '',
     username: '',
     password: '',
@@ -24,21 +24,33 @@ const AdminDashboard: React.FC = () => {
     active: true
   });
 
+  // Room Modal State
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [roomFormData, setRoomFormData] = useState({
+    number: '',
+    doctorName: '',
+    specialty: '',
+    active: true
+  });
+
   useEffect(() => {
-    setRooms(getRooms());
+    setRoomsList(getRooms());
     setUsersList(getUsers());
     setHistory(getHistory());
   }, []);
 
   const refreshData = () => {
     setUsersList(getUsers());
+    setRoomsList(getRooms());
     setHistory(getHistory());
   };
 
-  const handleOpenModal = (user?: User) => {
+  // --- USER HANDLERS ---
+  const handleOpenUserModal = (user?: User) => {
     if (user) {
       setEditingUser(user);
-      setFormData({
+      setUserFormData({
         name: user.name,
         username: user.username,
         password: '',
@@ -47,7 +59,7 @@ const AdminDashboard: React.FC = () => {
       });
     } else {
       setEditingUser(null);
-      setFormData({
+      setUserFormData({
         name: '',
         username: '',
         password: '',
@@ -65,19 +77,19 @@ const AdminDashboard: React.FC = () => {
     if (editingUser) {
       const updated = currentUsers.map(u => u.id === editingUser.id ? {
         ...u,
-        name: formData.name,
-        username: formData.username,
-        role: formData.role,
-        active: formData.active
+        name: userFormData.name,
+        username: userFormData.username,
+        role: userFormData.role,
+        active: userFormData.active
       } : u);
       setUsers(updated);
     } else {
       const newUser: User = {
         id: Date.now().toString(),
-        name: formData.name,
-        username: formData.username,
-        role: formData.role,
-        active: formData.active
+        name: userFormData.name,
+        username: userFormData.username,
+        role: userFormData.role,
+        active: userFormData.active
       };
       setUsers([...currentUsers, newUser]);
     }
@@ -100,7 +112,63 @@ const AdminDashboard: React.FC = () => {
     refreshData();
   };
 
-  // Export Functions
+  // --- ROOM HANDLERS ---
+  const handleOpenRoomModal = (room?: Room) => {
+    if (room) {
+      setEditingRoom(room);
+      setRoomFormData({
+        number: room.number,
+        doctorName: room.doctorName,
+        specialty: room.specialty,
+        active: room.active
+      });
+    } else {
+      setEditingRoom(null);
+      setRoomFormData({
+        number: '',
+        doctorName: '',
+        specialty: '',
+        active: true
+      });
+    }
+    setShowRoomModal(true);
+  };
+
+  const handleSaveRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    const currentRooms = getRooms();
+    
+    if (editingRoom) {
+      const updated = currentRooms.map(r => r.id === editingRoom.id ? {
+        ...r,
+        number: roomFormData.number,
+        doctorName: roomFormData.doctorName,
+        specialty: roomFormData.specialty,
+        active: roomFormData.active
+      } : r);
+      saveRooms(updated);
+    } else {
+      const newRoom: Room = {
+        id: 'r' + Date.now(),
+        number: roomFormData.number,
+        doctorName: roomFormData.doctorName,
+        specialty: roomFormData.specialty,
+        active: roomFormData.active
+      };
+      saveRooms([...currentRooms, newRoom]);
+    }
+    
+    setShowRoomModal(false);
+    refreshData();
+  };
+
+  const toggleRoomStatus = (room: Room) => {
+    const updated = rooms.map(r => r.id === room.id ? { ...r, active: !r.active } : r);
+    saveRooms(updated);
+    refreshData();
+  };
+
+  // --- EXPORT FUNCTIONS ---
   const exportToExcel = () => {
     const data = history.map(h => ({
       'Data/Hora': new Date(h.timestamp).toLocaleString('pt-BR'),
@@ -118,12 +186,9 @@ const AdminDashboard: React.FC = () => {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
-    
-    // Header
     doc.setFontSize(20);
-    doc.setTextColor(10, 61, 98); // Hospital Blue
+    doc.setTextColor(10, 61, 98);
     doc.text('Relatório de Atendimentos - MedCall Pro', 14, 22);
-    
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 30);
@@ -196,7 +261,7 @@ const AdminDashboard: React.FC = () => {
           
           <div className="md:col-span-3 bg-white border rounded-3xl shadow-sm overflow-hidden">
              <div className="p-6 border-b flex items-center justify-between">
-                <h4 className="font-bold text-slate-800">Atendimentos de Hoje</h4>
+                <h4 className="font-bold text-slate-800">Atendimentos Recentes</h4>
              </div>
              <table className="w-full text-left">
                 <thead>
@@ -210,7 +275,7 @@ const AdminDashboard: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                    {history.slice(0, 8).map(call => (
                       <tr key={call.id} className="hover:bg-slate-50 transition-colors">
-                         <td className="px-6 py-4 font-bold text-slate-700">{call.patientName}</td>
+                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{call.patientName}</td>
                          <td className="px-6 py-4"><span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-lg font-bold text-xs">Sala {call.roomName}</span></td>
                          <td className="px-6 py-4 text-slate-500 text-sm">{call.doctorName}</td>
                          <td className="px-6 py-4 text-slate-400 text-sm">{new Date(call.timestamp).toLocaleTimeString()}</td>
@@ -230,7 +295,7 @@ const AdminDashboard: React.FC = () => {
                 <p className="text-sm text-slate-500">Controle quem pode acessar cada módulo.</p>
               </div>
               <button 
-                onClick={() => handleOpenModal()}
+                onClick={() => handleOpenUserModal()}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20"
               >
                  + Novo Usuário
@@ -246,7 +311,6 @@ const AdminDashboard: React.FC = () => {
                      >
                         <div className={`bg-white w-4 h-4 rounded-full transition-transform ${u.active ? 'translate-x-4' : 'translate-x-0'}`}></div>
                      </div>
-                     
                      <div className="flex items-center gap-4 mb-4">
                         <div className={`w-12 h-12 rounded-xl shadow-sm flex items-center justify-center text-white font-bold ${
                           u.role === UserRole.ADMIN ? 'bg-purple-500' : u.role === UserRole.RECEPTION ? 'bg-blue-500' : 'bg-green-500'
@@ -258,12 +322,11 @@ const AdminDashboard: React.FC = () => {
                           <p className="text-xs text-slate-500">@{u.username}</p>
                         </div>
                      </div>
-                     
                      <div className="flex items-center justify-between mt-4 border-t pt-4">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{u.role}</span>
                         <div className="flex gap-2">
                            <button 
-                            onClick={() => handleOpenModal(u)}
+                            onClick={() => handleOpenUserModal(u)}
                             className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-blue-500 hover:border-blue-200 transition-all flex items-center justify-center"
                            >
                             <i className="fas fa-edit text-xs"></i>
@@ -284,6 +347,55 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {view === 'rooms' && (
+        <div className="bg-white border rounded-3xl shadow-sm">
+           <div className="p-8 border-b flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Gerenciamento de Consultórios</h3>
+                <p className="text-sm text-slate-500">Cadastre e altere os nomes das salas e médicos.</p>
+              </div>
+              <button 
+                onClick={() => handleOpenRoomModal()}
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-green-500/20"
+              >
+                 + Novo Consultório
+              </button>
+           </div>
+           <div className="p-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {rooms.map(r => (
+                  <div key={r.id} className="p-6 rounded-2xl border bg-slate-50 relative group">
+                     <div 
+                       onClick={() => toggleRoomStatus(r)}
+                       className={`absolute top-4 right-4 w-10 h-6 rounded-full cursor-pointer transition-colors p-1 ${r.active ? 'bg-green-500' : 'bg-slate-300'}`}
+                     >
+                        <div className={`bg-white w-4 h-4 rounded-full transition-transform ${r.active ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                     </div>
+                     <div className="flex items-center gap-4 mb-4">
+                        <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-sm">
+                           <span className="text-xs font-black text-slate-400 uppercase leading-none">Sala</span>
+                           <span className="text-2xl font-black text-blue-600 leading-none mt-1">{r.number}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 truncate">{r.doctorName}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{r.specialty}</p>
+                        </div>
+                     </div>
+                     <div className="flex items-center justify-end mt-4 border-t pt-4 gap-2">
+                        <button 
+                          onClick={() => handleOpenRoomModal(r)}
+                          className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-500 font-bold text-xs hover:text-blue-600 hover:border-blue-200 transition-all flex items-center gap-2"
+                        >
+                          <i className="fas fa-edit"></i> Alterar Dados
+                        </button>
+                     </div>
+                  </div>
+                ))}
+             </div>
+           </div>
+        </div>
+      )}
+
       {view === 'history' && (
         <div className="bg-white border rounded-3xl shadow-sm">
            <div className="p-8 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -292,21 +404,14 @@ const AdminDashboard: React.FC = () => {
                 <p className="text-sm text-slate-500">Histórico completo de chamadas realizadas.</p>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={exportToExcel}
-                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20"
-                >
+                <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20">
                   <i className="fas fa-file-excel"></i> Excel
                 </button>
-                <button 
-                  onClick={exportToPDF}
-                  className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-rose-500/20"
-                >
+                <button onClick={exportToPDF} className="flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-rose-500/20">
                   <i className="fas fa-file-pdf"></i> PDF
                 </button>
               </div>
            </div>
-           
            <div className="p-6 bg-slate-50 border-b">
               <div className="relative max-w-md">
                 <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
@@ -319,7 +424,6 @@ const AdminDashboard: React.FC = () => {
                 />
               </div>
            </div>
-
            <div className="overflow-x-auto">
              <table className="w-full text-left">
                 <thead>
@@ -333,15 +437,11 @@ const AdminDashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                    {filteredHistory.length === 0 ? (
-                     <tr>
-                       <td colSpan={5} className="p-20 text-center text-slate-400">Nenhum registro encontrado.</td>
-                     </tr>
+                     <tr><td colSpan={5} className="p-20 text-center text-slate-400">Nenhum registro encontrado.</td></tr>
                    ) : (
                      filteredHistory.map(call => (
                         <tr key={call.id} className="hover:bg-slate-50 transition-colors">
-                           <td className="px-6 py-4 text-slate-400 text-xs font-mono">
-                             {new Date(call.timestamp).toLocaleString('pt-BR')}
-                           </td>
+                           <td className="px-6 py-4 text-slate-400 text-xs font-mono">{new Date(call.timestamp).toLocaleString('pt-BR')}</td>
                            <td className="px-6 py-4 font-bold text-slate-700 uppercase">{call.patientName}</td>
                            <td className="px-6 py-4 text-blue-600 font-bold">{call.ticketNumber || '-'}</td>
                            <td className="px-6 py-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold text-xs uppercase tracking-tight">Sala {call.roomName}</span></td>
@@ -355,14 +455,6 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {view === 'rooms' && (
-        <div className="bg-white p-20 rounded-3xl border text-center text-slate-400">
-           <i className="fas fa-tools text-4xl mb-4 opacity-20"></i>
-           <h3 className="text-xl font-bold">Gerenciamento de Consultórios</h3>
-           <p>Em breve: Cadastro de salas e escala médica.</p>
-        </div>
-      )}
-
       {/* User Modal */}
       {showUserModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -370,75 +462,59 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-slate-50 p-6 border-b flex items-center justify-between">
               <h3 className="font-bold text-slate-800">{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</h3>
-              <button onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-slate-600">
-                <i className="fas fa-times"></i>
-              </button>
+              <button onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-slate-600"><i className="fas fa-times"></i></button>
             </div>
-            
             <form onSubmit={handleSaveUser} className="p-8 space-y-5">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nome Completo</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  placeholder="Ex: Ana Souza"
-                  required
-                />
+                <input type="text" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none" placeholder="Ex: Ana Souza" required />
               </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Username (Login)</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={e => setFormData({...formData, username: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  placeholder="Ex: ana.souza"
-                  required
-                />
+                <input type="text" value={userFormData.username} onChange={e => setUserFormData({...userFormData, username: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none" placeholder="Ex: ana.souza" required />
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nova Senha</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={e => setFormData({...formData, password: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  placeholder={editingUser ? "Deixe vazio para manter" : "Senha de acesso"}
-                  required={!editingUser}
-                />
-              </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Perfil de Acesso</label>
-                <select
-                  value={formData.role}
-                  onChange={e => setFormData({...formData, role: e.target.value as UserRole})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                >
+                <select value={userFormData.role} onChange={e => setUserFormData({...userFormData, role: e.target.value as UserRole})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none">
                   <option value={UserRole.ADMIN}>Administrador</option>
                   <option value={UserRole.RECEPTION}>Recepção</option>
                   <option value={UserRole.CLINIC}>Médico/Consultório</option>
                 </select>
               </div>
-
               <div className="flex items-center gap-3 pt-4">
-                 <button 
-                  type="button"
-                  onClick={() => setShowUserModal(false)}
-                  className="flex-1 py-4 font-bold text-slate-500 hover:bg-slate-50 rounded-2xl transition-all"
-                 >
-                   Cancelar
-                 </button>
-                 <button 
-                  type="submit"
-                  className="flex-1 py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 transition-all"
-                 >
-                   {editingUser ? 'Atualizar' : 'Criar Usuário'}
-                 </button>
+                 <button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-4 font-bold text-slate-500">Cancelar</button>
+                 <button type="submit" className="flex-1 py-4 bg-blue-500 text-white font-bold rounded-2xl shadow-lg">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Room Modal */}
+      {showRoomModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#0A3D62]/60 backdrop-blur-sm" onClick={() => setShowRoomModal(false)}></div>
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-slate-50 p-6 border-b flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">{editingRoom ? 'Alterar Consultório' : 'Novo Consultório'}</h3>
+              <button onClick={() => setShowRoomModal(false)} className="text-slate-400 hover:text-slate-600"><i className="fas fa-times"></i></button>
+            </div>
+            <form onSubmit={handleSaveRoom} className="p-8 space-y-5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Número / Nome da Sala</label>
+                <input type="text" value={roomFormData.number} onChange={e => setRoomFormData({...roomFormData, number: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none" placeholder="Ex: 01 ou Sala VIP" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Médico Responsável</label>
+                <input type="text" value={roomFormData.doctorName} onChange={e => setRoomFormData({...roomFormData, doctorName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none" placeholder="Ex: Dr. Roberto" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Especialidade</label>
+                <input type="text" value={roomFormData.specialty} onChange={e => setRoomFormData({...roomFormData, specialty: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none" placeholder="Ex: Pediatria" required />
+              </div>
+              <div className="flex items-center gap-3 pt-4">
+                 <button type="button" onClick={() => setShowRoomModal(false)} className="flex-1 py-4 font-bold text-slate-500">Cancelar</button>
+                 <button type="submit" className="flex-1 py-4 bg-green-500 text-white font-bold rounded-2xl shadow-lg">Confirmar Alteração</button>
               </div>
             </form>
           </div>

@@ -45,6 +45,7 @@ export const setStorage = <T,>(key: string, data: T): void => {
 
 // Data Management
 export const getRooms = () => getStorage<Room[]>(APP_CONFIG.STORAGE_KEYS.ROOMS, initialRooms);
+export const saveRooms = (rooms: Room[]) => setStorage(APP_CONFIG.STORAGE_KEYS.ROOMS, rooms);
 export const getUsers = () => getStorage<User[]>(APP_CONFIG.STORAGE_KEYS.USERS, initialUsers);
 export const setUsers = (users: User[]) => setStorage(APP_CONFIG.STORAGE_KEYS.USERS, users);
 export const getHistory = () => getStorage<PatientCall[]>(APP_CONFIG.STORAGE_KEYS.HISTORY, []);
