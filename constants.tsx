@@ -8,6 +8,7 @@ export const APP_CONFIG = {
     ROOMS: 'medcall_rooms',
     USERS: 'medcall_users',
     HISTORY: 'medcall_history',
-    LATEST_CALL: 'medcall_latest'
+    LATEST_CALL: 'medcall_latest',
+    WAITING_LIST: 'medcall_waiting'
   }
 };

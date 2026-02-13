@@ -24,6 +24,10 @@ const AdminDashboard: React.FC = () => {
     active: true
   });
 
+  // Delete Confirmation Modal State (Fix for Sandbox)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userIdToDelete, setUserIdToDelete] = useState<string | null>(null);
+
   // Room Modal State
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -98,10 +102,19 @@ const AdminDashboard: React.FC = () => {
     refreshData();
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (confirm('Deseja realmente excluir este usuário?')) {
-      const updated = users.filter(u => u.id !== id);
+  const openDeleteUserModal = (id: string) => {
+    const user = users.find(u => u.id === id);
+    if (user?.username === 'admin') return; // Cannot delete main admin
+    setUserIdToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteUser = () => {
+    if (userIdToDelete) {
+      const updated = users.filter(u => u.id !== userIdToDelete);
       setUsers(updated);
+      setShowDeleteConfirm(false);
+      setUserIdToDelete(null);
       refreshData();
     }
   };
@@ -332,7 +345,7 @@ const AdminDashboard: React.FC = () => {
                             <i className="fas fa-edit text-xs"></i>
                            </button>
                            <button 
-                            onClick={() => handleDeleteUser(u.id)}
+                            onClick={() => openDeleteUserModal(u.id)}
                             disabled={u.username === 'admin'}
                             className={`w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center ${u.username === 'admin' ? 'opacity-20 cursor-not-allowed' : ''}`}
                            >
@@ -486,6 +499,24 @@ const AdminDashboard: React.FC = () => {
                  <button type="submit" className="flex-1 py-4 bg-blue-500 text-white font-bold rounded-2xl shadow-lg">Salvar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#0A3D62]/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)}></div>
+          <div className="bg-white w-full max-w-xs rounded-3xl shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-200 p-8 text-center">
+             <div className="w-16 h-16 bg-red-100 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-user-minus text-2xl"></i>
+             </div>
+             <h3 className="text-lg font-bold text-slate-800 mb-2">Excluir Usuário</h3>
+             <p className="text-slate-500 text-xs mb-6">Tem certeza que deseja remover este acesso do sistema? Esta ação é irreversível.</p>
+             <div className="flex gap-3">
+                <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 text-sm font-bold text-slate-400">Cancelar</button>
+                <button onClick={confirmDeleteUser} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl shadow-lg shadow-red-500/10">Excluir</button>
+             </div>
           </div>
         </div>
       )}
