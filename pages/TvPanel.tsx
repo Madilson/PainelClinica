@@ -81,12 +81,12 @@ const TvPanel: React.FC = () => {
            // Start AI Voice Announcement
            setTimeout(() => {
              announcePatientWithGemini(call);
-           }, 1500);
+           }, 1800);
          }).catch(e => console.error('Erro áudio:', e));
       }
 
       setTimeout(() => setIsFlashing(false), 3000);
-      setTimeout(() => setIsAnimating(false), 10000);
+      setTimeout(() => setIsAnimating(false), 12000);
     }, 50);
   };
 
@@ -96,7 +96,9 @@ const TvPanel: React.FC = () => {
     try {
       setIsSpeaking(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Anuncie de forma clara e profissional: Paciente ${call.patientName}, por favor, compareça à sala ${call.roomName}.`;
+      
+      // Prompt aprimorado para voz mais natural
+      const prompt = `Diga pausadamente e com tom amigável: "Paciente ${call.patientName}, por favor, dirija-se à Sala ${call.roomName} para o seu atendimento."`;
       
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -119,6 +121,8 @@ const TvPanel: React.FC = () => {
         }
         
         const ctx = audioContextRef.current;
+        if (ctx.state === 'suspended') await ctx.resume();
+
         const audioBuffer = await decodeAudioData(
           decodeBase64(base64Audio),
           ctx,
@@ -137,9 +141,11 @@ const TvPanel: React.FC = () => {
     } catch (error) {
       console.error("Erro ao gerar voz com Gemini:", error);
       setIsSpeaking(false);
-      // Fallback para voz nativa se a API falhar
+      
+      // Fallback para voz nativa (Google Chrome/Edge)
       const utterance = new SpeechSynthesisUtterance(`Paciente ${call.patientName}. Sala ${call.roomName}`);
       utterance.lang = 'pt-BR';
+      utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     }
   };

@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Layout from './components/Layout';
 import AdminDashboard from './pages/AdminDashboard';
 import ReceptionDashboard from './pages/ReceptionDashboard';
+import ClinicDashboard from './pages/ClinicDashboard';
 import TvPanel from './pages/TvPanel';
 import { User, UserRole } from './types';
 import { APP_CONFIG } from './constants.tsx';
@@ -65,11 +66,12 @@ const App: React.FC = () => {
       case '#/reception/history':
         return user.role === UserRole.RECEPTION ? <ReceptionDashboard /> : <div className="p-10 text-center font-bold">Acesso Negado</div>;
       case '#/clinic':
-        return <div className="p-20 text-center text-slate-400"><i className="fas fa-stethoscope text-6xl mb-4"></i><h2 className="text-2xl font-bold text-slate-800">Painel do Médico</h2><p>Você pode visualizar seus pacientes chamados aqui.</p></div>;
+        return <ClinicDashboard user={user} />;
       default:
         // Default landing based on role
         if (user.role === UserRole.ADMIN) return <AdminDashboard />;
         if (user.role === UserRole.RECEPTION) return <ReceptionDashboard />;
+        if (user.role === UserRole.CLINIC) return <ClinicDashboard user={user} />;
         return <div className="p-10 text-center">Página não encontrada</div>;
     }
   };
